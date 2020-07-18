@@ -37,7 +37,7 @@ class LSTNet(nn.Module):
         # RNN (time_step, batch_size, CNN_output_channel)
         r = c.permute(2, 0, 1).contiguous()
         _, r = self.gru1(r)
-        # 去除time_step
+        # 去除num_of_layers
         r = self.dropout(torch.squeeze(r, 0))
 
         # skip-rnn

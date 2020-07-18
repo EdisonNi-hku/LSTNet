@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from data import Data_util
 from LSTNet import LSTNet
+from LSTNet_attn import LSTNet_attn
 import torch.optim as optim
 
 L1 = nn.L1Loss(reduction='sum')
@@ -41,7 +42,8 @@ def evaluate(model, Data, X, Y, device, batch_size):
 
     for data, target in Data.get_batches(X, Y, batch_size):
         data, target = data.to(device), target.to(device)
-        output = model(data)
+        with torch.no_grad():
+            output = model(data)
         if predict is None:
             predict = output
             test = target
@@ -69,6 +71,8 @@ def evaluate(model, Data, X, Y, device, batch_size):
 
 
 parser = argparse.ArgumentParser(description='PyTorch Time series forecasting')
+parser.add_argument('--modelType', type=int, default=1,
+                    help='1 for LST-Skip, 0 for LST-Attn')
 parser.add_argument('--convChannel', type=int, default=50,
                     help='number of CNN hidden units')
 parser.add_argument('--rnnH', type=int, default=50,
@@ -81,19 +85,20 @@ parser.add_argument('--arI', type=int, default=120,
                     help='The window size of the highway component')
 parser.add_argument('--epochs', type=int, default=100,
                     help='upper epoch limit')
-parser.add_argument('--batch_size', type=int, default=64, metavar='N',
+parser.add_argument('--batch_size', type=int, default=32, metavar='N',
                     help='batch size')
 parser.add_argument('--dropout', type=float, default=0.2,
                     help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--log_interval', type=int, default=2000, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str, default='model.pt',
+parser.add_argument('--save', type=str, default='model_skip.pt',
                     help='path to save the final model')
 parser.add_argument('--cuda', type=str, default=True)
 parser.add_argument('--optim', type=str, default='adam')
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--horizon', type=int, default=2)
 parser.add_argument('--skip', type=float, default=77)
+parser.add_argument('--attn', type=float, default=300)
 parser.add_argument('--rnnS', type=int, default=5)
 parser.add_argument('--L1Loss', type=bool, default=False)
 args = parser.parse_args()
@@ -105,7 +110,11 @@ if args.L1Loss:
 else:
     criterion = nn.MSELoss(reduction='sum')
 
-model = LSTNet(args, Data)
+if args.modelType == 1:
+    model = LSTNet(args, Data)
+else:
+    model = LSTNet_attn(args, Data)
+
 if args.cuda:
     model.cuda()
 opt = optim.Adam(model.parameters())
